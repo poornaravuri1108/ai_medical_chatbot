@@ -9,8 +9,8 @@
     <h1>Chat with AI Bot</h1>
     <div id="chatbox">
         {% for message in conversation_history %}
-            <p><strong>You:</strong> {{ message.user }} <em>({{ message.timestamp }})</em></p>
-            <p><strong>Bot:</strong> {{ message.bot|safe }} <em>({{ message.timestamp }})</em></p>
+            <p><strong>You:</strong> {{ message.message }} <em>({{ message.timestamp }})</em></p>
+            <p><strong>Bot:</strong> {{ message.response|safe }} <em>({{ message.timestamp }})</em></p>
         {% endfor %}
     </div>
 
