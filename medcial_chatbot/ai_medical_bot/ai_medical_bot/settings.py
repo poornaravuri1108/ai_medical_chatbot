@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from chat.getting_api_keys import get_secret
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -127,8 +128,10 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-GEMINI_API_KEY="AIzaSyAZIhcHijHH1wo7OvkH0jabhtZ04ITwZsI"
+secrets = get_secret()
+
+GEMINI_API_KEY=secrets['GEMINI_API_KEY']
 LANGCHAIN_TRACING_V2=True
 LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
-LANGCHAIN_API_KEY="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"
+LANGCHAIN_API_KEY=secrets['LANGSMITH_API_KEY']
 LANGCHAIN_PROJECT="medical_chatbot"
