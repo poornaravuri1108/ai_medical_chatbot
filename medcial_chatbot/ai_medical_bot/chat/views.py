@@ -2,13 +2,14 @@ from django.shortcuts import render
 from datetime import timedelta
 from .models import Patient, Conversation
 from .ai_handler import AIHandler
+from django.conf import settings
 
 def chat_view(request):
     patient = Patient.objects.first()
     if not patient:
         patient = Patient.objects.create(
             first_name="Jessy",
-            last_name="Marry",
+            last_name="Mary",
             date_of_birth="1999-10-08",
             phone_number="8870699909",
             email="jessy.mary@vit.edu",
@@ -18,8 +19,16 @@ def chat_view(request):
             next_appointment="2024-09-25 10:00",
             doctor_name="Dr. Chittibabu"
         )
+    api_key = settings.GEMINI_API_KEY
+    ai_handler = AIHandler(api_key=api_key)
 
-    ai_handler = AIHandler(api_key="AIzaSyAbuzWRPG5X5KCovo402gJuai2Qtkvnckw")
+    if settings.LANGCHAIN_TRACING_V2:
+        # print("----------------------------------Into Tracing---------------------------------")
+        ai_handler.initialize_tracing(
+            endpoint=settings.LANGCHAIN_ENDPOINT,
+            project=settings.LANGCHAIN_PROJECT,
+            langsmith_api_key=settings.LANGCHAIN_API_KEY
+        )
 
     if request.method == 'POST':
         user_input = request.POST.get('user_input')

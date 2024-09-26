@@ -2,13 +2,27 @@ import google.generativeai as genai
 import markdown2
 import re
 from datetime import timedelta
+import langsmith
+from langchain.callbacks import tracing_v2_enabled
+from langsmith import traceable
 
 class AIHandler:
     def __init__(self, api_key):
         self.api_key = api_key
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel('gemini-1.5-pro')
+        self.client = None
 
+    def initialize_tracing(self, endpoint, project, langsmith_api_key):
+        self.client = langsmith.Client(api_key=langsmith_api_key, web_url=endpoint)
+        self.project = project
+
+    @traceable(
+            run_type="llm",
+            name="AI_BOT_RESPONSE_GENERATOR",
+            tags=["BOT_RESPONSE_GENERATOR"],
+            metadata={"task":"token_check"}
+    )
     def generate_response(self, user_input, patient):
         user_input_lower = user_input.lower()
 
@@ -29,3 +43,4 @@ class AIHandler:
         response = self.model.generate_content(user_input)
         response_html = markdown2.markdown(response.text)
         return response_html
+        

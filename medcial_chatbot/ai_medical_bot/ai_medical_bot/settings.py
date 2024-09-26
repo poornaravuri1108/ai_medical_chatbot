@@ -126,3 +126,9 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+GEMINI_API_KEY="AIzaSyAZIhcHijHH1wo7OvkH0jabhtZ04ITwZsI"
+LANGCHAIN_TRACING_V2=True
+LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+LANGCHAIN_API_KEY="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"
+LANGCHAIN_PROJECT="medical_chatbot"
