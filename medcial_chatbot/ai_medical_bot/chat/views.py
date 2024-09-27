@@ -4,6 +4,9 @@ from .models import Patient, Conversation
 from .ai_handler import AIHandler
 from django.conf import settings
 
+def opening_view(request):
+    return render(request, 'chat/main.html')
+
 def chat_view(request):
     patient = Patient.objects.first()
     if not patient:
