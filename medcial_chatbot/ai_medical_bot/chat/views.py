@@ -1,13 +1,16 @@
 from django.shortcuts import render
+from langchain.memory import ConversationSummaryMemory, ChatMessageHistory
+from langchain_openai import OpenAI
+from django.conf import settings
 from datetime import timedelta
 from .models import Patient, Conversation
 from .ai_handler import AIHandler
-from django.conf import settings
 
 def opening_view(request):
-    return render(request, 'chat/main.html')
+    return render(request, 'chat.html')
 
 def chat_view(request):
+    # Fetch or create the patient
     patient = Patient.objects.first()
     if not patient:
         patient = Patient.objects.create(
@@ -22,24 +25,37 @@ def chat_view(request):
             next_appointment="2024-09-25 10:00",
             doctor_name="Dr. Chittibabu"
         )
-    api_key = settings.GEMINI_API_KEY
-    ai_handler = AIHandler(api_key=api_key)
 
-    if settings.LANGCHAIN_TRACING_V2:
-        # print("----------------------------------Into Tracing---------------------------------")
-        ai_handler.initialize_tracing(
-            endpoint=settings.LANGCHAIN_ENDPOINT,
-            project=settings.LANGCHAIN_PROJECT,
-            langsmith_api_key=settings.LANGCHAIN_API_KEY
-        )
+    selected_model = request.POST.get('model', 'google')
+    api_key = settings.OPENAI_API_KEY if selected_model == 'openai' else settings.GEMINI_API_KEY
+
+    ai_handler = AIHandler(api_key=api_key, model_choice=selected_model)
+
+    history = ChatMessageHistory()
+    if patient.conversation_summary:
+
+        memory = ConversationSummaryMemory(llm=OpenAI(temperature=0), buffer=patient.conversation_summary, chat_memory=history, return_messages=True)
+    else:
+        memory = ConversationSummaryMemory(llm=OpenAI(temperature=0), chat_memory=history, return_messages=True)
 
     if request.method == 'POST':
         user_input = request.POST.get('user_input')
-        bot_response = ai_handler.generate_response(user_input=user_input, patient=patient)
+
+        conversation_history = Conversation.objects.filter(patient=patient).order_by('timestamp').values('message', 'response')
+        for conv in conversation_history:
+            history.add_user_message(conv['message'])
+            history.add_ai_message(conv['response'])
+
+        bot_response = ai_handler.generate_response(user_input=user_input, patient=patient, conversation_summary=memory.buffer)
 
         Conversation.objects.create(patient=patient, message=user_input, response=bot_response)
 
-    conversation_history = Conversation.objects.filter(patient=patient).order_by('-timestamp')
+        messages = memory.chat_memory.messages
+        new_summary = memory.predict_new_summary(messages, patient.conversation_summary)
+        patient.conversation_summary = new_summary
+        patient.save()
+
+    conversation_history = Conversation.objects.filter(patient=patient).order_by('timestamp')
 
     return render(request, 'chat/chat.html', {
         'patient': patient,

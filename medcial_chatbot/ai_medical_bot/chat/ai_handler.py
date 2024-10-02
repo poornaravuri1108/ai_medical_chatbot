@@ -1,3 +1,4 @@
+import openai
 import google.generativeai as genai
 import markdown2
 import re
@@ -7,23 +8,23 @@ from langchain.prompts import PromptTemplate
 from langsmith import traceable
 
 class AIHandler:
-    def __init__(self, api_key):
+    def __init__(self, api_key, model_choice='google'):
         self.api_key = api_key
-        genai.configure(api_key=self.api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-pro')
-        self.client = None
+        self.model_choice = model_choice
+        
+        if self.model_choice == 'google':
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel('gemini-1.5-pro')
+        elif self.model_choice == 'openai':
+            openai.api_key = self.api_key
 
-    def initialize_tracing(self, endpoint, project, langsmith_api_key):
-        self.client = langsmith.Client(api_key=langsmith_api_key, web_url=endpoint)
-        self.project = project
-
-    @traceable(
-        run_type="llm",
-        name="AI_BOT_RESPONSE_GENERATOR",
-        tags=["BOT_RESPONSE_GENERATOR"],
-        metadata={"task":"token_check"}
-    )
-    def generate_response(self, user_input, patient):
+    # @traceable(
+    #     run_type="llm",
+    #     name="AI_BOT_RESPONSE_GENERATOR",
+    #     tags=["BOT_RESPONSE_GENERATOR"],
+    #     metadata={"task":"token_check"}
+    # )
+    def generate_response(self, user_input, patient, conversation_summary):
         user_input_lower = user_input.lower()
 
         responses = []
@@ -44,44 +45,68 @@ class AIHandler:
 
         if responses:
             return " ".join(responses)
-        
+
+        # Use conversation summary instead of full history for LLM call
         prompt_template = PromptTemplate(
-            input_variables=["user_input", "doctor_name"],
+            input_variables=["user_input", "doctor_name", "conversation_summary"],
             template="""
-                AI Role:
-                You are a health assistant designed to interact with patients regarding their health and care plan. Your primary goal is to respond to health-related inquiries, assist with treatment and medication-related requests, and facilitate communication between the patient and their doctor.
+                    AI Role:
+                    You are a health assistant designed to interact with patients regarding their health and care plan. Your primary goal is to respond to health-related inquiries, assist with treatment and medication-related requests, and facilitate communication between the patient and their doctor.
 
-                Task Objective:
-                Respond to patient inquiries about general health, lifestyle, medical conditions, medications, diet, and treatment plans.
-                Handle patient requests to reschedule appointments or modify treatment protocols by relaying them to the doctor.
-                Filter out unrelated, sensitive, or controversial topics to ensure only relevant health-related conversations are handled.
-                
-                Task Input:
-                Patient message: "{user_input}"
-                Doctor's Name: "{doctor_name}"
+                    Task Objective:
+                    Respond to patient inquiries about general health, lifestyle, medical conditions, medications, diet, and treatment plans.
+                    Handle patient requests to reschedule appointments or modify treatment protocols by relaying them to the doctor.
+                    Filter out unrelated, sensitive, or controversial topics to ensure only relevant health-related conversations are handled.
 
-                Task Instructions:
-                Health-related Queries:
-                - If the patient asks a general health or lifestyle question, provide appropriate information.
-                - If the patient asks about their medical condition, medication regimen, or diet, respond with advice or information relevant to their query.
-                
-                Appointment or Treatment Requests:
-                - If the patient requests an appointment modification (e.g., “Can we reschedule the appointment to next Friday at 3 PM?”), respond with:
-                “I will convey your request to Dr. {doctor_name}.”
-                - Log a structured message summarizing the request.
+                    Task Input:
+                    Patient message: A text input where the patient provides their query or request. This may include general health questions, details about their condition or medication, or requests for changes to appointments.
+                    Doctor's Name: The name of the patient's doctor, to be used when relaying requests.
 
-                Topic Filtering:
-                - Ignore or politely deflect unrelated, sensitive, or controversial topics.
-            """
+                    Task Instructions:
+                    Health-related Queries:
+
+                    If the patient asks a general health or lifestyle question, provide appropriate information.
+                    If the patient asks about their medical condition, medication regimen, or diet, respond with advice or information relevant to their query.
+                    Appointment or Treatment Requests:
+
+                    If the patient requests an appointment modification (e.g., “Can we reschedule the appointment to next Friday at 3 PM?”), respond with:
+                    “I will convey your request to Dr. [Doctor’s Name].”
+                    Additionally, log a structured message that summarizes the request:
+                    “Patient [Name] is requesting an appointment change from [current time] to [requested time].”
+                    Topic Filtering:
+
+                    Ignore or politely deflect unrelated, sensitive, or controversial topics. Ensure that the conversation stays within the bounds of health-related discussions.
+                    Entity Extraction:
+
+
+                    Task Output:
+                    A relevant response to the patient's health-related query or request, formatted based on the task instructions only the text, nothing in bold or any other markdown format
+                    For appointment or treatment modification requests, output a structured message confirming that the request will be relayed to the doctor.
+                    Filter out irrelevant topics, ensuring the conversation remains focused on health-related matters.
+
+                                    Conversation Summary:
+                                    {conversation_summary}
+
+                                    Patient message: "{user_input}"
+                                    Doctor's Name: "{doctor_name}"
+                                """
         )
         
         rendered_prompt = prompt_template.format(
             user_input=user_input,
-            doctor_name=patient.doctor_name
+            doctor_name=patient.doctor_name,
+            conversation_summary=conversation_summary
         )
-
-        response = self.model.generate_content(rendered_prompt)
-
-        response_html = markdown2.markdown(response.text)
-        return response_html
-        
+        if self.model_choice == 'google':
+            response = self.model.generate_content(rendered_prompt)
+            return response.text
+        elif self.model_choice == 'openai':
+            response = openai.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": rendered_prompt}
+                ],
+                max_tokens=150
+            )
+            return response.choices[0].message.content

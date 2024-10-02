@@ -14,8 +14,15 @@
         {% endfor %}
     </div>
 
+    <!-- Model Selection Dropdown -->
     <form method="POST">
         {% csrf_token %}
+        <label for="model">Choose AI Model:</label>
+        <select name="model" id="model">
+            <option value="google">Google Gemini</option>
+            <option value="openai">OpenAI GPT</option>
+        </select>
+        <br><br>
         <textarea name="user_input" rows="4" cols="50"></textarea><br>
         <button type="submit">Send</button>
     </form>

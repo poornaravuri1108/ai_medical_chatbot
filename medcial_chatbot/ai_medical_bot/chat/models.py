@@ -11,6 +11,7 @@ class Patient(models.Model):
     last_appointment = models.DateTimeField()
     next_appointment = models.DateTimeField()
     doctor_name = models.CharField(max_length=100)
+    conversation_summary = models.TextField(blank=True, default="")
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
