@@ -7,7 +7,7 @@ from .models import Patient, Conversation
 from .ai_handler import AIHandler
 
 def opening_view(request):
-    return render(request, 'chat.html')
+    return render(request, 'chat/main.html')
 
 def chat_view(request):
     # Fetch or create the patient
