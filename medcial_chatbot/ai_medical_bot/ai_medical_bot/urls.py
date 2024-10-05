@@ -20,5 +20,6 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('chat.urls')),
+    path('', include('django_prometheus.urls')),
     # path('', views.opening_view, name='opening_view'),
 ]
